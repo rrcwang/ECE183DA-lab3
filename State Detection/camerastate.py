@@ -7,11 +7,11 @@ import time
 from pynput.keyboard import Key, Controller
 
 # set working directory
-os.chdir('C:\\Users\\Timothy Lee\\Pictures\\183DA Lab3')
+os.chdir('C:\\Users\\Timothy Lee\\Pictures\\183DA Lab3\\git\\State Detection')
 
 # define constants
 GBOUNDARY = [([50, 200, 100], [160, 255, 190])]
-PBOUNDARY = [([50, 0, 50], [255, 30, 255])]
+PBOUNDARY = [([90, 0, 90], [255, 70, 255])]
 IMG_WIDTH = 640
 IMG_LENGTH = 480
 BOX_X_LOWER = 20
@@ -41,7 +41,7 @@ def main():
 
     # load csv data into numpy matrix
     with open('cmd.csv', 'r') as file:
-        reader = csv.reader(file, delimiter=',')
+        reader = csv.reader(file, delimiter='\t')
         cmd = np.array(list(reader))
 
     # begin video capture
@@ -238,17 +238,25 @@ def draw_tree(vis, color):
     """Displays paths explored by RRT planner given a list of points"""
     # open data
     pts = np.genfromtxt('data.csv', delimiter=',')
+    pth = np.genfromtxt('path.csv', delimiter=',')
+
+    # draw origin circle
+    vis = cv2.circle(vis, cm2pix(12.5, 36), 10, (128, 255, 128), 3)
 
     # display tree
     i = 0
     while i < np.shape(pts)[0]:
         pt_1 = (cm2pix(pts[i][0], pts[i][1]))
         pt_2 = (cm2pix(pts[i][2], pts[i][3]))
-        print(i)
-        print("pt_1", pt_1)
-        print("pt_2", pt_2)
-        print(' ')
         vis = cv2.line(vis, pt_1, pt_2, color, 1)
+        i += 1
+
+    # display path
+    i = 0
+    while i < np.shape(pth)[0]:
+        pt_1 = (cm2pix(pth[i][0], pth[i][1]))
+        pt_2 = (cm2pix(pth[i][2], pth[i][3]))
+        vis = cv2.line(vis, pt_1, pt_2, (127, 236, 20), 1)
         i += 1
 
 
@@ -259,7 +267,7 @@ def pix2cm(x, y):
     y_conv = BOX_LENGTH_CM/(BOX_Y_UPPER - BOX_Y_LOWER)
 
     x_cm = x*x_conv
-    y_cm = y*y_conv
+    y_cm = (y - BOX_Y_LOWER)*y_conv
 
     return x_cm, y_cm
 
