@@ -9,6 +9,7 @@ It can be queried by setting up a list of rectangular Obstacle objects, each ini
 * /State Detection/camerastate.py
 Streams data from camera in order to provide a state estimate of the robot in real time.
 Visualizes the configuration space, RRT tree, and fastest path.
+* Video of experiment in action: https://drive.google.com/file/d/1-1QiaZM3S5SvNVL1i6qHEvCh5tFvu6dk/view?usp=sharing
 
 # Resources consulted
 * https://gamedevelopment.tutsplus.com/tutorials/collision-detection-using-the-separating-axis-theorem--gamedev-169
