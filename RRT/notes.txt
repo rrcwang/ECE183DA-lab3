@@ -1,0 +1,51 @@
+The collision detection is done as follows:
+* Circular robot with radius R. After a new node u and it's nearest neighbour v has been found check:
+** For each obstacle, evaluate whether a circular representation of the robot intersects with it when at each point u and v.
+** A rectangle of with width 2*R is the total area that is covered by the robot moving from u to v. Check if this area collides with any obstacles.
+
+It would be relatively trivial to account for the true shape of the robot, since it can only travel in straight lines. The rectangle described above would be narrowed down to the real width of the robot. Collision at any node in the tree would be evaluated identically.
+
+
+To implement RRT*, we would need to introduce some notion of a cost function. 
+Instead of directly linking a new node to the nearest point, we select some number of candidate points and evaluate the costs at those points from that nearest point.
+
+RRT:
+Graph  // Graph containing edges and vertices, initialized as empty
+while counter < max_iterations:
+    s_new = random_position()
+    if is_in_obstacle(s_new) == True:
+        continue
+
+    s_nearest = nearest(Graph, s_new)
+    edge = (s_new, s_nearest)
+    Graph.append(edge)
+
+    if s_new in goal_area:
+        return Graph
+return Graph
+
+RRT*:
+Graph  // Graph containing edges and vertices, initialized as empty
+radius // Search radius at each step
+while counter < max_iterations:
+    s_new = random_position()
+    if is_in_obstacle(s_new) == True:
+        continue
+
+    s_nearest = nearest(Graph(V,E), s_new)
+    cost(s_new) = distance(s_new, s_nearest)
+    s_neighbours = find_neighbours(Graph(V,E), s_new, radius)
+    s_best = argmin_s(cost(s)) // s in s_neighbours
+
+    edge = (s_new, s_best)
+    for s' in s_neighbours: // iterate through neighbours to move towawrds optimal path
+	new_cost = cost(s_new) + distance(s_new, s')
+	if new_cost < cost(s')
+            cost(s') = new_cost
+	    Graph.append((s_new, s'))
+    
+    Graph.append(edge)
+Return G
+
+
+

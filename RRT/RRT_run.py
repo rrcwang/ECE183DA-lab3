@@ -9,6 +9,7 @@ import networkx as nx
 from collections import defaultdict
 
 BOX_SIZE = [63, 45]
+ROBOT_RADIUS = 8
 
 ##############
 # Defines the rectangular obstacles in our map
@@ -60,11 +61,8 @@ class Obstacle:
 def round_coords(point):
     return [round(point[0], 1), round(point[1], 1)]
 
-# Graph connecting vertex points
-# implementation adapted from https://www.geeksforgeeks.org/generate-graph-using-dictionary-python/
-
-
 class PathGraph:
+    ''' Graph containing vertex points of the RRT '''
     def __init__(self, init_position):
         self.graph = nx.Graph()
         self.graph.add_node(tuple(init_position))
@@ -74,7 +72,7 @@ class PathGraph:
         v = tuple(round_coords(v))
         self.graph.add_edge(u, v)
 
-    # definition of function that
+    # definition of function that 
     def generate_edges(self):
         edges = []
         # for each node in graph
@@ -87,7 +85,6 @@ class PathGraph:
 
     def get_all_points(self):
         return list(self.graph.nodes())
-
 
     # function to find the shortest path
     # function to find path
@@ -116,7 +113,6 @@ class PathGraph:
 
 class ConfigSpace:
     def __init__(self, obstacles):
-        self.robot_radius = 8
         self.obstacles = obstacles  # list of obstacles
 
     def get_obstacle(self, n):
@@ -166,7 +162,7 @@ class ConfigSpace:
                 max_projection = projection
 
         # Checks if there exists some separating line between the robot and the obstacle
-        if ((np.linalg.norm(obs_to_robot) - max_projection - self.robot_radius) > 0) and (np.linalg.norm(obs_to_robot) > 0):
+        if ((np.linalg.norm(obs_to_robot) - max_projection - ROBOT_RADIUS) > 0) and (np.linalg.norm(obs_to_robot) > 0):
             return False
         else:
             return True
@@ -270,10 +266,8 @@ def get_box_min_max(box, axis):
 
     return [min_projection, max_projection]
 
-# returns the normaal vectors to the sides of a box obstacle
-
-
 def get_box_normals(box):
+    ''' Returns the normaal vectors to the sides of a box obstacle '''
     corners = box.get_corners()
 
     normals = []
@@ -284,19 +278,21 @@ def get_box_normals(box):
         normals.append(curr_norm)
     return (normals[1:] + normals[:1])
 
-o = Obstacle([[32.6, 44.0],  # should be declared in the clockwise direction
-              [32.6, 26.8],
-              [35.8, 26.8],
-              [35.8, 44.0]])
+
+
+### RUN CODE ###
+o = Obstacle([[0, 10],
+              [0, 13],
+              [25, 13],
+              [25, 10]])
 
 cs = ConfigSpace([o])
 
-print(cs.check_path_collision(np.array([25, 25]), np.array([50, 50])))
-
-gg = RRT_create([12.5, 36], [48, 35], cs)
+gg = RRT_create([45, 10], [8, 35], cs)
 ggs = gg.generate_edges()
-path = gg.find_path((12.5, 36), (48, 35))
+path = gg.find_path((45, 10), (8, 35))
 
+# format data and run
 passs = [[element for tupl in tupleOfTuples for element in tupl]
        for tupleOfTuples in ggs]
 np.savetxt("data.csv", passs, delimiter=",")      # output tree data
