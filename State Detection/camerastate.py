@@ -10,8 +10,8 @@ from pynput.keyboard import Key, Controller
 os.chdir('C:\\Users\\Timothy Lee\\Pictures\\183DA Lab3')
 
 # define constants
-GBOUNDARY = [([90, 130, 90], [200, 200, 200])]
-PBOUNDARY = [([60, 20, 60], [140, 40, 180])]
+GBOUNDARY = [([50, 200, 100], [160, 255, 190])]
+PBOUNDARY = [([50, 0, 50], [255, 30, 255])]
 IMG_WIDTH = 640
 IMG_LENGTH = 480
 BOX_X_LOWER = 20
@@ -28,6 +28,9 @@ TIME_INTERVAL_S = 0.1
 
 def main():
     """main baby"""
+    # display conversion factors
+    print_pix2cm()
+
     # clear log
     f = open('log.csv', "w+")
 
@@ -52,7 +55,7 @@ def main():
     time_increment = 0
     start_data = False
     start_cmd = False
-    cmd_line = 0;
+    cmd_line = 0
     last_cmd = 'S'
     keyboard = Controller()
 
@@ -82,6 +85,8 @@ def main():
         theta = get_angle(gx, gy, px, py)
         vis = get_vis(gx, gy, px, py, theta)
         draw_box(vis)
+        draw_obst(vis)
+        draw_tree(vis, (255, 255, 255))
 
         # concatenate images
         temp = cv2.imread('dirthouse.PNG')  # placeholder image
@@ -140,7 +145,7 @@ def main():
             cmd_line = 0
 
         # Display the resulting frame and visual
-        cv2.imshow('masked frame', viewer)
+        cv2.imshow('output', viewer)
 
         # Wait for command
         inp = cv2.waitKey(1) & 0xFF
@@ -184,11 +189,11 @@ def get_vis(gx, gy, px, py, theta):
         return img
 
     # display x, y, theta
-    img = cv2.circle(img, (int(gx), IMG_LENGTH - int(gy)), 30, (0, 255, 0), 1)
+    img = cv2.circle(img, (int(gx), IMG_LENGTH - int(gy)), 80, (0, 255, 0), 1)
     img = cv2.circle(img, (int(px), IMG_LENGTH - int(py)), 1, (255, 0, 255), 3)
 
-    line_theta_x = int(25*np.cos(theta) + gx)
-    line_theta_y = int(-25*np.sin(theta) + IMG_LENGTH - gy)
+    line_theta_x = int(80*np.cos(theta) + gx)
+    line_theta_y = int(-80*np.sin(theta) + IMG_LENGTH - gy)
     img = cv2.line(img, (int(gx), IMG_LENGTH - int(gy)), (line_theta_x, line_theta_y), (255, 255, 0), 1)
 
     x, y = pix2cm(gx, gy)
@@ -215,6 +220,38 @@ def draw_box(frame):
     frame = cv2.line(frame, (BOX_X_UPPER, IMG_LENGTH - BOX_Y_UPPER), \
                             (BOX_X_UPPER, IMG_LENGTH - BOX_Y_LOWER), (255, 255, 255), 1)
 
+def draw_obst(vis):
+    """Displays the offset slit for testing, points are hard-coded in pixel-points"""
+    # Define left obstacle:
+    l_center_top = (300, IMG_LENGTH - BOX_Y_UPPER)
+    l_center_bot = (300 + 30, IMG_LENGTH - BOX_Y_UPPER + 160)
+    vis = cv2.rectangle(vis, l_center_top, l_center_bot, (255, 255, 255), 1, 4, 0)
+
+    # Define goal:
+    goal_center = (480, 100)
+    vis = cv2.circle(vis, goal_center, 30, (0, 255, 255), 3)
+    temp = "goal"
+    vis = cv2.putText(vis, temp, (445, 100 + 50), FONT, 2, (0, 255, 255))
+    return
+
+def draw_tree(vis, color):
+    """Displays paths explored by RRT planner given a list of points"""
+    # open data
+    pts = np.genfromtxt('data.csv', delimiter=',')
+
+    # display tree
+    i = 0
+    while i < np.shape(pts)[0]:
+        pt_1 = (cm2pix(pts[i][0], pts[i][1]))
+        pt_2 = (cm2pix(pts[i][2], pts[i][3]))
+        print(i)
+        print("pt_1", pt_1)
+        print("pt_2", pt_2)
+        print(' ')
+        vis = cv2.line(vis, pt_1, pt_2, color, 1)
+        i += 1
+
+
 def pix2cm(x, y):
     """Use box bounds to convert pixel positions to centimeters from wall"""
 
@@ -225,5 +262,24 @@ def pix2cm(x, y):
     y_cm = y*y_conv
 
     return x_cm, y_cm
+
+def cm2pix(x, y):
+    """Convert cm coordinates to pixel coordinates, NOT the inverse of pix2cm, but it should be"""
+    x_conv = np.float((BOX_X_UPPER - BOX_X_LOWER)/BOX_WIDTH_CM)
+    y_conv = np.float((BOX_Y_UPPER - BOX_Y_LOWER)/BOX_LENGTH_CM)
+
+    x_pix = x*x_conv + BOX_X_LOWER
+    y_pix = np.float(IMG_LENGTH) - (y*y_conv) - BOX_Y_LOWER
+
+    return int(round(x_pix)), int(round(y_pix))
+
+
+def print_pix2cm():
+    """Output conversion factors"""
+    x_conv = BOX_WIDTH_CM/(BOX_X_UPPER - BOX_X_LOWER)
+    y_conv = BOX_LENGTH_CM/(BOX_Y_UPPER - BOX_Y_LOWER)
+    print("x-axis conversion factor: ", x_conv, "cm/pixel or ", 1/x_conv, "pixels/cm")
+    print("y-axis conversion factor: ", y_conv, "cm/pixel or ", 1/y_conv, "pixels/cm")
+    print("average conversion factor: ", 2/(x_conv + y_conv), " pixels/cm")
 
 main()
