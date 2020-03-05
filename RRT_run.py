@@ -2,12 +2,18 @@ import numpy as np
 import math
 import pygame
 import random
+from itertools import chain
+import networkx as nx
 
 # import dictionary for graph
 from collections import defaultdict
 
+BOX_SIZE = [63, 45]
+
 ##############
 # Defines the rectangular obstacles in our map
+
+
 class Obstacle:
     # Initializer,
     # takes the corners as input
@@ -25,29 +31,28 @@ class Obstacle:
         else:
 
             return self.corners[n - 1]
-            
+
     def get_corners(self):
         return self.corners
-            
+
     # Does it collide with some other box?
     def collides_with(self, box):
         normals_1 = get_box_normals(self)
         normals_2 = get_box_normals(box)
-                
+
         result_1 = [get_box_min_max(bx, norm) for norm in [
             normals_1[1], normals_1[0]] for bx in [self, box]]
-        
+
         result_2 = [get_box_min_max(bx, norm) for norm in [
             normals_2[1], normals_2[0]] for bx in [self, box]]
-        
+
         b1 = result_1[0][1] < result_1[1][0] or result_1[1][1] < result_1[0][0]
         b2 = result_1[2][1] < result_1[3][0] or result_1[3][1] < result_1[2][0]
-        
+
         b3 = result_2[0][1] < result_2[1][0] or result_2[1][1] < result_2[0][0]
         b4 = result_2[2][1] < result_2[3][0] or result_2[3][1] < result_2[2][0]
-        
-        print([b1,b2,b3,b4])
-        
+
+
         return not (b1 or b2 or b3 or b4)
 
 
@@ -56,17 +61,20 @@ def round_coords(point):
     return [round(point[0], 1), round(point[1], 1)]
 
 # Graph connecting vertex points
-## implementation adapted from https://www.geeksforgeeks.org/generate-graph-using-dictionary-python/
+# implementation adapted from https://www.geeksforgeeks.org/generate-graph-using-dictionary-python/
+
+
 class PathGraph:
     def __init__(self, init_position):
-        self.graph = defaultdict(list)
-    
+        self.graph = nx.Graph()
+        self.graph.add_node(tuple(init_position))
+
     def add_edge(self, u, v):
         u = tuple(round_coords(u))
         v = tuple(round_coords(v))
-        self.graph[u].append(v)
-    
-    # definition of function that 
+        self.graph.add_edge(u, v)
+
+    # definition of function that
     def generate_edges(self):
         edges = []
         # for each node in graph
@@ -76,48 +84,40 @@ class PathGraph:
                 # if edge exists then append
                 edges.append((node, neighbour))
         return edges
-    
+
     def get_all_points(self):
-        return [list(v) for v in self.graph.keys()] 
-    
-    # function to find the shortest path 
-    def find_shortest_path(self, start, end, path =[]): 
-        path = path + [start] 
-        if start == end: 
-            return path 
-        shortest = None
-        for node in self.graph[start]: 
-            if node not in path: 
-                newpath = find_shortest_path(self.graph, node, end, path) 
-                if newpath: 
-                    if not shortest or len(newpath) < len(shortest): 
-                        shortest = newpath 
-        return shortest
-    
+        return list(self.graph.nodes())
+
+
+    # function to find the shortest path
+    # function to find path
+    def find_path(self, start, end):
+        return nx.shortest_path(self.graph, start, end)
+
     ### 2.2(e) ###
-    # returns the index for the point in points that is nearest the target
+    # returns the point in points that is nearest the target
     def get_nearest(self, target):
         target = round_coords(target)
         nearest_index = 0
         points = self.get_all_points()
-        
-        nearest_dist = np.linalg.norm([points[0][0] - target[0], points[0][1] - target[1]])
+
+        nearest_dist = np.linalg.norm(
+            [points[0][0] - target[0], points[0][1] - target[1]])
         points = np.array(points)
-    
+
         for i in range(1, np.shape(points)[0]):
             curr_norm = np.linalg.norm(points[i] - target)
             if (np.linalg.norm(points[i] - target) < nearest_dist):
                 nearest_index = i
                 nearest_dist = curr_norm
-    
+
         return points[nearest_index]
 
 
 class ConfigSpace:
     def __init__(self, obstacles):
-        self.robot_radius = 7
+        self.robot_radius = 8
         self.obstacles = obstacles  # list of obstacles
-        self.size = [63, 45]
 
     def get_obstacle(self, n):
         if (n < 0) or (n > np.shape(self.obstacles)[0]):
@@ -125,10 +125,9 @@ class ConfigSpace:
         else:
             return self.obstacles[n]
 
-    
     def gen_path_2pts(self, initial_state, target_state):
         """ Generates the direction and velocity required to travel from the initial_state to the target_state """
-        
+
         diff = initial_state - target_state
         # velocity is given by the distance/time, time = 1s
         vel = np.linalg.norm(diff[0:2])
@@ -139,12 +138,12 @@ class ConfigSpace:
         # To move from initial_state to target_state, we will need to rotate to the heading
         # given above, then travel in that direction at velocity vel to reach the target
         return [direc, vel]
-    
+
     def point_collides_with(self, position, obstacle):
         """ Detects whether the robot collides with some given obstacle statically
         Implementation taken from:
         https://gamedevelopment.tutsplus.com/tutorials/collision-detection-using-the-separating-axis-theorem--gamedev-169 """
-    
+
         # get the normalized vector pointing from the obstacle's center to the robot's
         obs_center = obstacle.get_coords(0)
         obs_to_robot = position - obs_center
@@ -171,68 +170,72 @@ class ConfigSpace:
             return False
         else:
             return True
-    
+
     def point_collides(self, position):
         collides = False
         for obs in self.obstacles:
             collides = collides or self.point_collides_with(position, obs)
         return collides
-    
+
     ### 2.2(d) ###
     def check_path_collision(self, initial_state, target_state):
         ''' returns true if the path collides with any of the obstacles '''
         path = self.gen_path_2pts(initial_state, target_state)
         heading = math.atan2(path[0][1], path[0][0])
         side = [math.cos(heading + math.pi), math.sin(heading + math.pi)]
-        
+
         initial_state = np.array(initial_state)
-        
+
         path_rect = Obstacle([initial_state + side,
-                            initial_state - side,
-                            target_state + side,
-                            target_state - side])
-        
-        collides = False        
+                              initial_state - side,
+                              target_state + side,
+                              target_state - side])
+
+        collides = False
         for obs in self.obstacles:
             collides = collides and path_rect.collides_with(obs)
-        
+
         return collides
-        
+
     def get_random_pt(self):
-        return [random.uniform(0,1)*self.size[0], random.uniform(0,1)*self.size[1]]
-    
-### 2.2(f) ###  
+        return [random.uniform(0, 1)*BOX_SIZE[0], random.uniform(0, 1)*BOX_SIZE[1]]
+
+### 2.2(f) ###
+
+
 def RRT_create(init_pos, target, config_space):
     ''' CREATE RRT '''
     path_graph = PathGraph(init_pos)
-    path_graph.add_edge(init_pos, init_pos+[0.1,0.1])
     count = 0
     max_iters = 1000000
-    
+
     target = np.array(target)
-    
-    while (count < max_iters):        
+
+    while (count < max_iters):
         new_pt = np.array(config_space.get_random_pt())
         if count % 10:
             new_pt = target
         nearest_pt = path_graph.get_nearest(new_pt)
-        
+
         # make step in direction
         direc = (new_pt - nearest_pt)
         direc = direc/np.linalg.norm(direc) * 3
         new_pt = nearest_pt + direc
-        
-        if ((config_space.check_path_collision(new_pt, nearest_pt)) 
-            or (config_space.point_collides(new_pt)) 
-            or (config_space.point_collides(nearest_pt))):
+        if (new_pt[0] < 0) or (new_pt[0] > BOX_SIZE[0]) or (new_pt[1] < 0) or (new_pt[1] > BOX_SIZE[1]):
+            new_pt = new_pt - direc*0.9
+
+        if ((config_space.check_path_collision(new_pt, nearest_pt))
+            or (config_space.point_collides(new_pt))
+                or (config_space.point_collides(nearest_pt))):
             continue
         path_graph.add_edge(new_pt, nearest_pt)
-        
+
         if (np.linalg.norm(new_pt - target) < 3):
+            path_graph.add_edge(new_pt, target)
             return path_graph
-        
+
     return path_graph
-        
+
 
 def sort_clockwise(corners):
     ''' Sorts distinct points of a polygon in clockwise order '''
@@ -251,12 +254,11 @@ def get_box_min_max(box, axis):
     ''' Returns the maximum and minimum magnitudes of the box-to-corner vectors
     projected onto the box-to-box direction '''
     axis = axis / np.linalg.norm(axis)
-        
+
     corners = box.get_corners()
 
     min_projection = corners[1, :] @ axis
     max_projection = corners[1, :] @ axis
-    
 
     for j in range(1, 4):
         curr_proj = corners[j, :] @ axis
@@ -269,6 +271,8 @@ def get_box_min_max(box, axis):
     return [min_projection, max_projection]
 
 # returns the normaal vectors to the sides of a box obstacle
+
+
 def get_box_normals(box):
     corners = box.get_corners()
 
@@ -280,19 +284,6 @@ def get_box_normals(box):
         normals.append(curr_norm)
     return (normals[1:] + normals[:1])
 
-
-# pygame.init()
-#size = width, height = 800, 600
-#screen = pygame.display.set_mode(size)
-# screen.fill((0,0,0))
-
-
-def display():
-    r = pygame.Rect(15, 15, 30, 30)
-    white = (255, 255, 255)
-
-    pygame.draw.rect(screen, white, r)
-
 o = Obstacle([[32.6, 44.0],  # should be declared in the clockwise direction
               [32.6, 26.8],
               [35.8, 26.8],
@@ -300,11 +291,15 @@ o = Obstacle([[32.6, 44.0],  # should be declared in the clockwise direction
 
 cs = ConfigSpace([o])
 
-print(cs.check_path_collision(np.array([25,25]),np.array([50,50])))
+print(cs.check_path_collision(np.array([25, 25]), np.array([50, 50])))
 
-gg = RRT_create([1,1], [48,35], cs)
+gg = RRT_create([12.5, 36], [48, 35], cs)
 ggs = gg.generate_edges()
+path = gg.find_path((12.5, 36), (48, 35))
 
-ass = [[element for tupl in tupleOfTuples for element in tupl] for tupleOfTuples in ggs]
-np.savetxt("data.csv", ass, delimiter=",")
+ass = [[element for tupl in tupleOfTuples for element in tupl]
+       for tupleOfTuples in ggs]
+np.savetxt("data.csv", ass, delimiter=",")      # output tree data
+puss = [element for tupl in path for element in tupl]
+np.savetxt("path.csv", path, delimiter=",")     # output optimal path data
 
