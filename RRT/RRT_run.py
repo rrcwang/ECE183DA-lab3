@@ -297,9 +297,8 @@ gg = RRT_create([12.5, 36], [48, 35], cs)
 ggs = gg.generate_edges()
 path = gg.find_path((12.5, 36), (48, 35))
 
-ass = [[element for tupl in tupleOfTuples for element in tupl]
+passs = [[element for tupl in tupleOfTuples for element in tupl]
        for tupleOfTuples in ggs]
-np.savetxt("data.csv", ass, delimiter=",")      # output tree data
+np.savetxt("data.csv", passs, delimiter=",")      # output tree data
 puss = [element for tupl in path for element in tupl]
-np.savetxt("path.csv", path, delimiter=",")     # output optimal path data
-
+np.savetxt("path.csv", puss, delimiter=",")     # output optimal path data
