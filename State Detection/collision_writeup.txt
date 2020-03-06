@@ -1,0 +1,114 @@
+Several ways to implement collision detection --
+
+the two simplest forms of collision detection in 2D space are circular and axis aligned bounded box (no rotation)
+
+Axis aligned bounded box is the best option for the case where only the cardinal directions (all degree angle multiples of 90) are considered in terms of robot rotation.
+
+AXIS-ALIGNED-BOX-BOX in pseudocode:
+   
+   define objectType object:
+      objParam1
+      objParam2
+      ...      //any necessary parameters not included in collision
+      objParamN
+      x, y, w, h  //bottom-left x, y, width and height
+   
+   create list of objects obstacles    //derived from map in step (a)
+      obst1 = {x1, y1, w1, h1}
+      obst2 = {x2, y2, w2, h2}
+      ...
+      obstN = {xN, yN, wN, hN}
+      
+   create object robot = {x, y, w, h}
+   
+   for each object obst in obstacles
+      if (robot.x < obst.x + obst.w &&
+         robot.x + robot.w > obst.x &&
+         robot.y < obst.y + obst.h &&
+         robot.y + robot.h > obst.y)
+         //collision detected
+
+The issue with this form of collision detection is that it again only considers the cardinal directions, restricting the number of theta states to four, which would be very difficult to create finer movements. However, this is useful for rudimentary tests.
+
+
+
+
+The simplest and likely viable option here is circle-circle collision for the paperbot, as the robot dimensions are fairly square in nature and an additional offset can be given to obstacles to ensure collision does not occur in physical space in actual implementation.
+
+CIRCLE-CIRCLE in pseudocode:
+
+   define objectType object:
+      objParam1
+      objParam2
+      ...      //any necessary parameters not included in collision
+      objParamN
+      radius, posX, posY
+      
+   create list of objects obstacles    //derived from map in step (a)
+      obst1 = {r1, x1, y1}
+      obst2 = {r2, x2, y2}
+      ...
+      obstN = {rN, xN, yN}
+      
+   create object robot = {robotSize, x, y}   //x and y are updated with ongoing input and state estimation
+
+   for each object obst in obstacles
+      dx = obst.x - robot.x
+      dy = obst.y - robot.y
+      dist = sqrt(dx*dx + dy*dy)
+      
+      if dist < (obst.r + robot.r)
+         //collision detected
+      
+Note that these use current position -- a next_state that includes position computed ahead of the current time through the input can be used in lieu of this, along with some contingency algorithm that runs when collision is predicted. When using circle-circle collision detection, a rotation of 90 degrees in either direction could be used to avoid collisions or check for other potential cases for collision. 45 degree rotations (i.e. movements where both x and y are altered by 1 per unit of time) may be permitted provided the obstacle radii are offset appropriately, as circular representations already provide a bit of "cushioning" in collision with a conservative enough radius.
+
+
+
+
+To implement a more thorough collision detection, the Separating Axis Theorem (SAT) can be utilized.
+
+If you can draw a line that separates two polygons, they do not collide.
+
+ The theorem works for all convex polygons and provides boolean basic collision detection accurately and with low computational overhead (only basic vector math is used). Essentially, the theorem uses projections of a polygon's points onto an axis perpendicular to the side being tested. This creates a 1 dimensional image of each 2D object being compared against an axis orthogonal to one side of an object (i.e. two lines). If the two lines do not intersect, then the function can be exited and no collision is detected. Otherwise, other sides must be tested until a gap is detected or no gap is ever found (collision detected).
+
+SAT is useful here because both the robot and any obstacles will be defined by rectangles in experimentation, meaning the maximum number of iterations required for each collision is 4. Though it may exceed the scope of what we can test, it is an interesting method to explore for more complex orientations in larger state spaces (i.e. finer position states).
+
+A lot of the code for this is in the last link in this text file, though it's a bit verbose and purposely inefficient because it's a tutorial.
+
+
+
+Additionally, the robot can still be described as a circle in SAT, allowing for the previously mentioned "cushioning" in physical implementation. The way this is done is that only one axis is checked -- the axis between the center of the circle and the closest vertex of the object it is being checked for collision with. I would personally go with this one because of how easy it is to implement (though I feel rect-rect isn't too hard either) and that it'll probably give us results that are about as good as implementing rectangle-rectangle SAT.
+
+SAT box-circle code, sourced from tutsplus.com:
+
+private function refresh():void {      //circle box collision, see https://cdn.tutsplus.com/gamedev/uploads/legacy/008_separatingAxisTheorem/assets/circle.jpg
+    //prepare the vectors
+    var v:Vector2d;
+    var current_box_corner:Point;
+    var center_box:Point = box1.getDot(0);
+     
+    var max:Number = Number.NEGATIVE_INFINITY;
+    var box2circle:Vector2d = new Vector2d(c.x - center_box.x, c.y - center_box.y)
+    var box2circle_normalised:Vector2d = box2circle.unitVector
+     
+    //get the maximum
+    for (var i:int = 1; i < 5; i++) 
+    {
+        current_box_corner = box1.getDot(i)
+        v = new Vector2d(
+            current_box_corner.x - center_box.x , 
+            current_box_corner.y - center_box.y);
+        var current_proj:Number = v.dotProduct(box2circle_normalised)
+         
+        if (max < current_proj) max = current_proj;
+    }
+    if (box2circle.magnitude - max - c.radius > 0 && box2circle.magnitude > 0) t.text = "No Collision"
+    else t.text = "Collision"
+}
+
+
+
+
+sources on SAT:
+https://www.sevenson.com.au/actionscript/sat/
+I'd use this one -----> https://gamedevelopment.tutsplus.com/tutorials/collision-detection-using-the-separating-axis-theorem--gamedev-169
